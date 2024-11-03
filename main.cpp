@@ -1,19 +1,19 @@
 #include <algorithm>
 #include <cstdio>
-#include <iostream>
-#include <ostream>
 #include <raylib.h>
 #include <stdlib.h>
 #include <string>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
+#include <utility>
 #include <vector>
 
 const int WIDTH = 300;
-const int HEIGHT = 100;
+const int HEIGHT = 110;
 
-const std::string TRACK = "../assets/Undertale - ＊ Despite Everything, It's "
-                          "Still You [Instrumental Version].mp3";
+const Color BG_COLOR = Color{0x14, 0x14, 0x1b, 0xff};
+const std::pair<Color, Color> PALETTE = {Color{0xb1, 0x93, 0xba, 0xff},
+                                         Color{0x84, 0x66, 0x8e, 0xff}};
 
 struct MetaData {
     std::string title;
@@ -25,7 +25,6 @@ std::string get_path() {
     FILE *f = popen("zenity --file-selection --file-filter=*.mp3", "r");
     std::fgets(path, 1024, f);
     std::string strpath = path;
-    std::cout << strpath << std::endl;
     return strpath.substr(0, strpath.length() - 1);
 }
 
@@ -69,7 +68,6 @@ struct Track {
 
 Track preparation() {
     std::string path = get_path();
-    path = (path != "") ? path : TRACK;
     MetaData data = get_meta(path);
     std::vector<std::string> title = split_string(data.title, 25, ' ');
     std::vector<std::string> author = split_string(data.artist, 30, ' ');
@@ -77,18 +75,18 @@ Track preparation() {
 }
 
 int main() {
-    Track track = preparation();
+    double volume = 0.1;
+    bool is_paused = false;
 
     InitWindow(WIDTH, HEIGHT, "ray");
-
     InitAudioDevice();
 
+    Track track = preparation();
     Music music;
-
     music = LoadMusicStream(track.path.data());
-    SetMusicVolume(music, 0.1);
-    PlayMusicStream(music);
 
+    SetMusicVolume(music, volume);
+    PlayMusicStream(music);
     while (!WindowShouldClose()) {
         UpdateMusicStream(music);
 
@@ -100,21 +98,52 @@ int main() {
             PlayMusicStream(music);
         }
 
-        BeginDrawing();
-        ClearBackground(BLACK);
+        if (IsKeyPressed(KEY_SPACE)) {
+            is_paused = !is_paused;
+            if (is_paused)
+                PauseMusicStream(music);
+            else
+                ResumeMusicStream(music);
+        }
 
+        if (IsKeyPressed(KEY_UP)) {
+            volume = std::min(volume + 0.025, 0.5);
+            SetMusicVolume(music, volume);
+        } else if (IsKeyPressed(KEY_DOWN)) {
+            volume = std::max(volume - 0.025, 0.025);
+            SetMusicVolume(music, volume);
+        }
+
+        BeginDrawing();
+        ClearBackground(BG_COLOR);
+
+        // track title line
         int title_shift = 0;
         for (std::string line : track.title) {
-            DrawText(line.data(), 10, 10 + 20 * title_shift, 20, GREEN);
+            DrawText(line.data(), 10, 10 + 20 * title_shift, 20,
+                     (!is_paused) ? PALETTE.first : LIGHTGRAY);
             title_shift++;
         }
 
+        // author line
         int author_shift = 0;
         for (std::string line : track.author) {
             DrawText(line.data(), 10, 10 + 20 * title_shift + 10 * author_shift,
-                     10, DARKGREEN);
+                     10, (!is_paused) ? PALETTE.second : GRAY);
             author_shift++;
         }
+
+        // volume slider
+        const double MAXH = 40.0;
+        int h = MAXH * volume * 2;
+        int pos_y = HEIGHT - 10 - h;
+        const int MAXW = 15;
+        int pos_x = WIDTH - 10 - MAXW;
+        // volume slider background
+        DrawRectangle(pos_x, HEIGHT - 10 - MAXH, MAXW, MAXH, (!is_paused) ? PALETTE.second : GRAY);
+        // slider itself
+        DrawRectangle(pos_x, pos_y, MAXW, h, (!is_paused) ? PALETTE.first : LIGHTGRAY);
+
         EndDrawing();
     }
 
