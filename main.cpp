@@ -1,12 +1,14 @@
 #include <algorithm>
+#include <cstddef>
 #include <cstdio>
+#include <filesystem>
 #include <nfd.h>
-#include <queue>
 #include <raylib.h>
 #include <stdlib.h>
 #include <string>
 #include <taglib/fileref.h>
 #include <taglib/tag.h>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -17,13 +19,32 @@ const Color BG_COLOR = Color{0x14, 0x14, 0x1b, 0xff};
 const std::pair<Color, Color> PALETTE = {Color{0xb1, 0x93, 0xba, 0xff},
                                          Color{0x84, 0x66, 0x8e, 0xff}};
 
+const std::unordered_set<std::string> SUPPORTED_TYPES = {
+    ".mp3", ".ogg", ".wav", ".aac", ".flac", ".m4a"};
+
 struct Track {
     std::string path;
     std::string title;
     std::string artist;
 };
 
-std::queue<Track> Playlist;
+std::vector<Track> playlist;
+
+std::string get_dirpath() {
+    NFD_Init();
+    std::string res = "";
+
+    nfdu8char_t *outPath;
+    nfdresult_t result = NFD_PickFolderN(&outPath, NULL);
+    switch (result) {
+    case NFD_OKAY: {
+        res = outPath;
+    } break;
+    default:
+        break;
+    }
+    return res;
+}
 
 std::string get_filepath() {
     NFD_Init();
@@ -46,8 +67,8 @@ std::string get_filepath() {
     return res;
 }
 
-std::vector<std::string> split_string(std::string &str, int maxlen,
-                                      char delimiter = ' ') {
+std::vector<std::string> split(std::string &str, int maxlen,
+                               char delimiter = ' ') {
     int len = str.length();
     str = (str.length() > 75) ? str.substr(0, 75) + "..." : str;
     std::vector<std::string> result;
@@ -66,8 +87,17 @@ std::vector<std::string> split_string(std::string &str, int maxlen,
     return result;
 }
 
-Track get_track() {
-    std::string path = get_filepath();
+template <typename T, typename Iter> bool in(T item, Iter iter) {
+    return (iter.find(item) != iter.end());
+}
+
+bool is_filetype_supported(std::string path) {
+    std::string ext = std::filesystem::path(path).extension().string();
+    return in<std::string, std::unordered_set<std::string>>(ext,
+                                                            SUPPORTED_TYPES);
+}
+
+Track get_track(std::string path) {
     Track result = Track{path, "", ""};
 
     TagLib::FileRef f(path.data());
@@ -81,33 +111,116 @@ Track get_track() {
     return result;
 }
 
+void add_to_playlist_recursive(const std::filesystem::path &dir) {
+    for (auto &entry : std::filesystem::directory_iterator(dir)) {
+        if (std::filesystem::is_directory(entry.status())) {
+            add_to_playlist_recursive(entry.path());
+        } else {
+            if (is_filetype_supported(entry.path().string())) {
+                Track track = get_track(entry.path().string());
+                playlist.push_back(track);
+            }
+        }
+    }
+}
+
+void set_playlist() {
+    std::string path = get_dirpath();
+    add_to_playlist_recursive(std::filesystem::path(path));
+}
+
 int main() {
+    bool is_loaded = false;
     double volume = 0.1;
     bool is_paused = false;
 
     InitWindow(WIDTH, HEIGHT, "ray");
     InitAudioDevice();
+    Track track;
 
-    Track track = get_track();
-    std::vector<std::string> title = split_string(track.title, 25, ' ');
-    std::vector<std::string> author = split_string(track.artist, 30, ' ');
+    // Before playlist is loaded
+    std::string default_msg =
+        "Please use O to load a playlist or A to add one track";
+    std::vector<std::string> msg = split(default_msg, 20, ' ');
+    while (!WindowShouldClose() && !is_loaded) {
+
+        if (IsKeyPressed(KEY_A)) {
+            std::string path = get_filepath();
+            track = get_track(path);
+            playlist.push_back(track);
+            is_loaded = true;
+        }
+
+        if (IsKeyPressed(KEY_O)) {
+            playlist.clear();
+            set_playlist();
+
+            is_loaded = true;
+        }
+
+        BeginDrawing();
+
+        ClearBackground(BG_COLOR);
+        int shift = 0;
+        for (std::string t : msg) {
+            DrawText(t.data(), 10, 10 + 20 * shift, 20, PALETTE.first);
+            shift++;
+        }
+
+        EndDrawing();
+    }
+
+    int current_index = 0;
+    int playlist_index = 0;
+
+    track = playlist[current_index];
+    std::vector<std::string> title = split(track.title, 20, ' ');
+    std::vector<std::string> author = split(track.artist, 30, ' ');
     Music music;
     music = LoadMusicStream(track.path.data());
 
     SetMusicVolume(music, volume);
     PlayMusicStream(music);
     while (!WindowShouldClose()) {
-        UpdateMusicStream(music);
+        if (playlist_index == current_index && IsMusicStreamPlaying(music)) {
+            UpdateMusicStream(music);
+        } else {
+            if (playlist_index == current_index) {
+                playlist_index = (playlist_index + 1 < playlist.size())
+                                     ? playlist_index + 1
+                                     : 0;
+                UnloadMusicStream(music);
+            }
+            current_index = playlist_index;
+            track = playlist[current_index];
+            title = split(track.title, 20, ' ');
+            author = split(track.artist, 30, ' ');
+
+            music = LoadMusicStream(track.path.data());
+            SetMusicVolume(music, volume);
+            PlayMusicStream(music);
+        }
+
+        if (IsKeyPressed(KEY_A)) {
+            std::string path = get_filepath();
+            track = get_track(path);
+            playlist.push_back(track);
+        }
 
         if (IsKeyPressed(KEY_O)) {
-            track = get_track();
-            title = split_string(track.title, 25, ' ');
-            author = split_string(track.artist, 30, ' ');
+            playlist.clear();
+            current_index = 0;
+            set_playlist();
+        }
 
-            UnloadMusicStream(music);
-            music = LoadMusicStream(track.path.data());
-            SetMusicVolume(music, 0.1);
-            PlayMusicStream(music);
+        if (IsKeyPressed(KEY_RIGHT)) {
+            playlist_index =
+                (playlist_index + 1 < playlist.size()) ? playlist_index + 1 : 0;
+        }
+
+        if (IsKeyPressed(KEY_LEFT)) {
+            playlist_index = (playlist_index - 1 >= 0) ? playlist_index - 1
+                                                       : playlist.size() - 1;
         }
 
         if (IsKeyPressed(KEY_SPACE)) {
