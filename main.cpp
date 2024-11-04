@@ -87,17 +87,12 @@ std::vector<std::string> split(std::string &str, int maxlen,
     return result;
 }
 
-template <typename T, typename Iter> bool in(T item, Iter iter) {
-    return (iter.find(item) != iter.end());
-}
-
-bool is_filetype_supported(std::string path) {
+bool is_filetype_supported(std::string &path) {
     std::string ext = std::filesystem::path(path).extension().string();
-    return in<std::string, std::unordered_set<std::string>>(ext,
-                                                            SUPPORTED_TYPES);
+    return SUPPORTED_TYPES.find(ext) != SUPPORTED_TYPES.end();
 }
 
-Track get_track(std::string path) {
+Track get_track(std::string &path) {
     Track result = Track{path, "", ""};
 
     TagLib::FileRef f(path.data());
@@ -112,12 +107,14 @@ Track get_track(std::string path) {
 }
 
 void add_to_playlist_recursive(const std::filesystem::path &dir) {
-    for (auto &entry : std::filesystem::directory_iterator(dir)) {
+    for (const std::filesystem::directory_entry &entry :
+         std::filesystem::directory_iterator(dir)) {
         if (std::filesystem::is_directory(entry.status())) {
             add_to_playlist_recursive(entry.path());
         } else {
-            if (is_filetype_supported(entry.path().string())) {
-                Track track = get_track(entry.path().string());
+            std::string ent = entry.path().string();
+            if (is_filetype_supported(ent)) {
+                Track track = get_track(ent);
                 playlist.push_back(track);
             }
         }
@@ -182,7 +179,8 @@ int main() {
     SetMusicVolume(music, volume);
     PlayMusicStream(music);
     while (!WindowShouldClose()) {
-        if (playlist_index == current_index && IsMusicStreamPlaying(music)) {
+        if (playlist_index == current_index && IsMusicStreamPlaying(music) &&
+            !is_paused) {
             UpdateMusicStream(music);
         } else {
             if (playlist_index == current_index) {
