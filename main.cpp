@@ -1,8 +1,10 @@
 #include <algorithm>
+#include <chrono>
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
 #include <nfd.h>
+#include <random>
 #include <raylib.h>
 #include <stdlib.h>
 #include <string>
@@ -73,7 +75,7 @@ std::vector<std::string> split(std::string &str, int maxlen,
     str = (str.length() > 75) ? str.substr(0, 75) + "..." : str;
     std::vector<std::string> result;
     int current = 0;
-    while (current < str.length()) {
+    while (current < len) {
         int predicted = std::min(len - 1, current + maxlen - 1);
         while (str[predicted] != delimiter && predicted < len - 1 &&
                predicted > current) {
@@ -114,6 +116,7 @@ void add_to_playlist_recursive(const std::filesystem::path &dir) {
         } else {
             std::string ent = entry.path().string();
             if (is_filetype_supported(ent)) {
+                std::string name = entry.path().filename().string();
                 Track track = get_track(ent);
                 playlist.push_back(track);
             }
@@ -124,6 +127,13 @@ void add_to_playlist_recursive(const std::filesystem::path &dir) {
 void set_playlist() {
     std::string path = get_dirpath();
     add_to_playlist_recursive(std::filesystem::path(path));
+}
+
+void shuffle_playlist() {
+    unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+    std::default_random_engine e(seed);
+
+    std::shuffle(playlist.begin(), playlist.end(), e);
 }
 
 int main() {
@@ -174,15 +184,17 @@ int main() {
     std::vector<std::string> title = split(track.title, 20, ' ');
     std::vector<std::string> author = split(track.artist, 30, ' ');
     Music music;
-    music = LoadMusicStream(track.path.data());
+    music = LoadMusicStream(
+        std::filesystem::path(track.path.data()).string().c_str());
+    // music = LoadMusicStream(track.path.data());
 
     SetMusicVolume(music, volume);
     PlayMusicStream(music);
+
     while (!WindowShouldClose()) {
-        if (playlist_index == current_index && IsMusicStreamPlaying(music) &&
-            !is_paused) {
+        if (playlist_index == current_index && IsMusicStreamPlaying(music)) {
             UpdateMusicStream(music);
-        } else {
+        } else if (!is_paused) {
             if (playlist_index == current_index) {
                 playlist_index = (playlist_index + 1 < playlist.size())
                                      ? playlist_index + 1
@@ -194,7 +206,9 @@ int main() {
             title = split(track.title, 20, ' ');
             author = split(track.artist, 30, ' ');
 
-            music = LoadMusicStream(track.path.data());
+            music = LoadMusicStream(
+                std::filesystem::path(track.path.data()).string().c_str());
+            // music = LoadMusicStream(track.path.data());
             SetMusicVolume(music, volume);
             PlayMusicStream(music);
         }
@@ -209,6 +223,11 @@ int main() {
             playlist.clear();
             current_index = 0;
             set_playlist();
+        }
+
+        if (IsKeyPressed(KEY_R)) {
+            shuffle_playlist();
+            playlist_index = 0;
         }
 
         if (IsKeyPressed(KEY_RIGHT)) {
