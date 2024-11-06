@@ -1,8 +1,0 @@
-/home/heli/Projects/cpp/ray_player/build/CMakeFiles/ray.dir
-/home/heli/Projects/cpp/ray_player/build/CMakeFiles/edit_cache.dir
-/home/heli/Projects/cpp/ray_player/build/CMakeFiles/rebuild_cache.dir
-/home/heli/Projects/cpp/ray_player/build/nativefiledialog-extended/CMakeFiles/edit_cache.dir
-/home/heli/Projects/cpp/ray_player/build/nativefiledialog-extended/CMakeFiles/rebuild_cache.dir
-/home/heli/Projects/cpp/ray_player/build/nativefiledialog-extended/src/CMakeFiles/nfd.dir
-/home/heli/Projects/cpp/ray_player/build/nativefiledialog-extended/src/CMakeFiles/edit_cache.dir
-/home/heli/Projects/cpp/ray_player/build/nativefiledialog-extended/src/CMakeFiles/rebuild_cache.dir
