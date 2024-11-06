@@ -1,9 +1,12 @@
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstddef>
 #include <cstdio>
 #include <filesystem>
+#include <iostream>
 #include <nfd.h>
+#include <ostream>
 #include <random>
 #include <raylib.h>
 #include <stdlib.h>
@@ -191,11 +194,21 @@ int main() {
     SetMusicVolume(music, volume);
     PlayMusicStream(music);
 
+    float track_position = roundf(GetMusicTimePlayed(music) * 10);
+    float track_length = roundf(GetMusicTimeLength(music) * 10);
+
+    SetTargetFPS(30);
+
     while (!WindowShouldClose()) {
-        if (playlist_index == current_index && IsMusicStreamPlaying(music)) {
+        track_position = roundf(GetMusicTimePlayed(music) * 10);
+        track_length = roundf(GetMusicTimeLength(music) * 10);
+
+        if (playlist_index == current_index && IsMusicStreamPlaying(music) &&
+            track_position != track_length) {
             UpdateMusicStream(music);
         } else if (!is_paused) {
-            if (playlist_index == current_index) {
+            if (playlist_index == current_index ||
+                track_position == track_length) {
                 playlist_index = (playlist_index + 1 < playlist.size())
                                      ? playlist_index + 1
                                      : 0;
@@ -227,7 +240,8 @@ int main() {
 
         if (IsKeyPressed(KEY_R)) {
             shuffle_playlist();
-            playlist_index = 0;
+            playlist_index =
+                (playlist_index + 1 < playlist.size()) ? playlist_index + 1 : 0;
         }
 
         if (IsKeyPressed(KEY_RIGHT)) {
