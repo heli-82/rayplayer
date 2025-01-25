@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=ray
+Icon=io.bassi.Amberol
+Exec="$HOME/.local/bin/ray"
+Type=Application
+Comment=Simple music player
+Categories=Multimedia;
+Terminal=false
+StartupNotify=true
+

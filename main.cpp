@@ -76,6 +76,7 @@ std::vector<std::string> split(std::string &str, int maxlen,
                                char delimiter = ' ') {
     int len = str.length();
     str = (str.length() > 75) ? str.substr(0, 75) + "..." : str;
+    len = str.length();
     std::vector<std::string> result;
     int current = 0;
     while (current < len) {
@@ -197,14 +198,14 @@ int main() {
     float track_position = roundf(GetMusicTimePlayed(music) * 10);
     float track_length = roundf(GetMusicTimeLength(music) * 10);
 
-    SetTargetFPS(30);
+    SetTargetFPS(60);
 
     while (!WindowShouldClose()) {
         track_position = roundf(GetMusicTimePlayed(music) * 10);
         track_length = roundf(GetMusicTimeLength(music) * 10);
 
         if (playlist_index == current_index && IsMusicStreamPlaying(music) &&
-            track_position != track_length) {
+            track_position < track_length) {
             UpdateMusicStream(music);
         } else if (!is_paused) {
             if (playlist_index == current_index ||
